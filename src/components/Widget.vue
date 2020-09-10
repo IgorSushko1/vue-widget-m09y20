@@ -13,33 +13,43 @@
             };
         },
         async mounted() {
-            fetch('https://api.exchangeratesapi.io/latest?base=RUB')
-                .then((resp) => resp.json())
-                .then((data) => {
-                    this.currencyList = data.rates;
-                    this.currencyKeys = Object.keys(data.rates);
-                });
+            this.getCurrencies('RUB');
 
             this.parentElement = document.getElementById(this.parentId);
         },
         methods: {
-            getCurrency() {},
-            Focused(name) {
-                const lastElem = document.getElementById(this.mainCurrency);
+            async getCurrencies(name) {
+                fetch(`https://api.exchangeratesapi.io/latest?base=${name}`)
+                    .then((resp) => resp.json())
+                    .then((data) => {
+                        this.mainCurrency = name;
+                        this.currencyList = data.rates;
+                        if (this.mainCurrency !== 'EUR') {
+                            this.currencyKeys = Object.keys(data.rates);
+                        }
+                    });
+            },
+            async Focused(name) {
+                await this.getCurrencies(name);
+                const lastElem = this.parentElement.querySelector(
+                    '#' + this.mainCurrency
+                );
                 lastElem.classList.remove('currency-menu__name_focused');
-                const elem = document.getElementById(name);
+                const elem = this.parentElement.querySelector('#' + name);
                 elem.classList.toggle('currency-menu__name_focused');
                 this.mainCurrency = name;
             },
 
             listMoveTo(where) {
-                const elem = document.querySelector('.currency-menu__list');
+                const elem = this.parentElement.querySelector(
+                    '.currency-menu__list'
+                );
 
-                const liElems = document.getElementsByTagName('li');
+                const liElems = this.parentElement.getElementsByTagName('li');
                 const lengthOfOneLiElement = liElems[0].offsetWidth; //90
-                const liLength = liElems.length * lengthOfOneLiElement;
+                const liLength = (liElems.length + 6) * lengthOfOneLiElement;
 
-                const containerForList = document.querySelector(
+                const containerForList = this.parentElement.querySelector(
                     '.currency-menu__container-for-list'
                 );
                 const widthContainerForList = containerForList.getBoundingClientRect()
@@ -48,7 +58,7 @@
                 if (where) {
                     if (where === 'prev') {
                         if (this.marginX > 0) {
-                            this.marginX = this.marginX - 90;
+                            this.marginX = this.marginX - 98;
                             elem.style.marginLeft = `-${this.marginX}px`;
                         }
                     }
@@ -58,8 +68,38 @@
                         if (rightSum >= liLength) {
                             return;
                         } else {
-                            this.marginX = this.marginX + 90;
+                            this.marginX = this.marginX + 98;
                             elem.style.marginLeft = `-${this.marginX}px`;
+                        }
+                    }
+                }
+            },
+
+            switchCurrency(where) {
+                const removeFocus = () => {
+                    const lastElem = this.parentElement.querySelector(
+                        '#' + this.mainCurrency
+                    );
+                    lastElem.classList.remove('currency-menu__name_focused');
+                };
+                for (let i = 0; i < this.currencyKeys.length; i++) {
+
+                    if (this.currencyKeys[i] === this.mainCurrency) {
+                        if (where === 'prev' && i - 1 >= 0) {
+                            removeFocus();
+                            this.mainCurrency = this.currencyKeys[i - 1];
+                            this.Focused(this.mainCurrency);
+
+                            break;
+                        } else if (
+                            where === 'next' &&
+                            i < this.currencyKeys.length - 1
+                        ) {
+                            removeFocus();
+                            this.mainCurrency = this.currencyKeys[i + 1];
+                            this.Focused(this.mainCurrency);
+
+                            break;
                         }
                     }
                 }
@@ -70,8 +110,6 @@
 
 <template>
     <div class="widget" id="widget">
-        <h3>Виджет работает!</h3>
-
         <article>
             <section>
                 <div class="currency-menu">
@@ -82,6 +120,9 @@
                         <div
                             class="currency-menu__arrow_prev"
                             id="listMoveToPrev"
+                            v-bind:class="{
+                                'currency-menu__arrow_prev_active': marginX > 0,
+                            }"
                             v-on:click="listMoveTo('prev', 'listMoveToPrev')"
                         >
                             &#8249;
@@ -153,18 +194,17 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- <select name="currency" id="widget__currency">
-                    <option value="volvo">Volvo</option>
-                    <option value="saab">Saab</option>
-                    <option value="mercedes">Mercedes</option>
-                    <option value="audi">Audi</option>
-                </select> -->
                 <div class="forward-back">
-                    <div class="forward-back__button forward-back__button_off">
+                    <div
+                        class="forward-back__button forward-back__button_off"
+                        v-on:click="switchCurrency('prev')"
+                    >
                         <span class="forward-back__arrow">&#8249;</span> назад
                     </div>
-                    <div class="forward-back__button forward-back__button_on">
+                    <div
+                        class="forward-back__button forward-back__button_on"
+                        v-on:click="switchCurrency('next')"
+                    >
                         далее <span class="forward-back__arrow">&#8250;</span>
                     </div>
                 </div>
@@ -173,7 +213,7 @@
     </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&display=swap');
 
     .widget {
@@ -218,6 +258,11 @@
             left: 26px;
             bottom: 8px;
             cursor: pointer;
+            visibility: hidden;
+
+            &_active {
+                visibility: visible;
+            }
         }
 
         &__arrow_next {
@@ -288,66 +333,68 @@
         }
     }
 
-    .currency-recount__container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-around;
-        float: left;
-        width: 100%;
-        margin-top: 20px;
-    }
-    .currency-recount__card {
-        min-width: 274px;
-        max-width: 327px;
-        width: 100%;
-        height: 138px;
-        border-radius: 8px;
-        box-shadow: 0 3px 3px 1px #efefef;
-        overflow: hidden;
-    }
+    .currency-recount {
+        &__container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            float: left;
+            width: 100%;
+            margin-top: 20px;
+        }
+        &__card {
+            min-width: 274px;
+            max-width: 327px;
+            width: 100%;
+            height: 138px;
+            border-radius: 8px;
+            box-shadow: 0 3px 3px 1px #efefef;
+            overflow: hidden;
+        }
 
-    .currency-recount__title {
-        text-align: start;
-        position: relative;
-        left: 31px;
-        top: -7px;
-        font-size: 21px;
-        letter-spacing: 1.1px;
-    }
+        &__title {
+            text-align: start;
+            position: relative;
+            left: 31px;
+            top: -7px;
+            font-size: 21px;
+            letter-spacing: 1.1px;
+        }
 
-    .currency-recount__currency-amount {
-        color: #2b2d33;
-        font-family: 'Roboto Condensed', sans-serif;
-        font-size: 24px;
-        font-weight: 300;
-    }
+        &__currency-amount {
+            color: #2b2d33;
+            font-family: 'Roboto Condensed', sans-serif;
+            font-size: 24px;
+            font-weight: 300;
+        }
 
-    .currency-recount__currency-name {
-        color: #b9b9b9;
-        font-weight: 100;
-        font-family: 'Roboto Condensed', sans-serif;
-        font-size: 24px;
-    }
+        &__currency-name {
+            color: #b9b9b9;
+            font-weight: 100;
+            font-family: 'Roboto Condensed', sans-serif;
+            font-size: 24px;
+        }
 
-    .currency-recount__recounted {
-        text-align: start;
-        position: relative;
-        left: 35px;
-        top: -15px;
-        margin-top: 0px;
-        letter-spacing: 2px;
-    }
+        &__recounted {
+            text-align: start;
+            position: relative;
+            left: 35px;
+            top: -15px;
+            margin-top: 0px;
+            letter-spacing: 2px;
+        }
 
-    .currency-recount__recounted-numeral {
-        font-size: 48px;
-        font-weight: 400;
-        font-family: 'Roboto Condensed', sans-serif;
-    }
+        &__recounted-numeral {
+            font-size: 48px;
+            font-weight: 400;
+            font-family: 'Roboto Condensed', sans-serif;
+        }
 
-    .currency-recount__recounted-currency {
-        font-size: 24px;
-        font-weight: 300;
-        font-family: 'Roboto Condensed', sans-serif;
+        &__recounted-currency {
+            font-size: 24px;
+            font-weight: 300;
+            font-family: 'Roboto Condensed', sans-serif;
+        }
     }
 
     .forward-back {
@@ -356,38 +403,41 @@
         justify-content: center;
         position: relative;
         top: 57px;
-    }
-    .forward-back__button {
-        text-align: center;
-        width: 112px;
-        height: 32px;
-        text-transform: uppercase;
-        font-size: 15px;
-        letter-spacing: 2px;
-        padding: 2px;
-        white-space: pre;
-        border-radius: 8px;
-        margin: 0 8px;
-        box-shadow: 0 3px 3px 1px #efefef;
-    }
-    .forward-back__button_off {
-        background: #efefef;
-        color: #787878;
-    }
-    .forward-back__button_on {
-        background: #ffffff;
-    }
-    .forward-back__arrow {
-        font-size: 23px;
-        position: relative;
-        top: 1px;
-        margin: 0 2px;
-        cursor: pointer;
-    }
-    .forward-back__arrow_off {
-        color: #787878;
-    }
-    .forward-back__arrow_on {
-        color: #2b2d33;
+
+        &__button {
+            text-align: center;
+            width: 112px;
+            height: 32px;
+            text-transform: uppercase;
+            font-size: 15px;
+            letter-spacing: 2px;
+            padding: 2px;
+            white-space: pre;
+            border-radius: 8px;
+            margin: 0 8px;
+            box-shadow: 0 3px 3px 1px #efefef;
+            margin-bottom: 30px;
+        }
+        &__button_off {
+            background: #efefef;
+            color: #787878;
+        }
+        &__button_on {
+            background: #ffffff;
+            color: #2b2d33;
+        }
+        &__arrow {
+            font-size: 23px;
+            position: relative;
+            top: 1px;
+            margin: 0 2px;
+            cursor: pointer;
+        }
+        &__arrow_off {
+            color: #787878;
+        }
+        &__arrow_on {
+            color: #2b2d33;
+        }
     }
 </style>
