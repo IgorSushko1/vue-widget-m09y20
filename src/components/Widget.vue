@@ -417,6 +417,7 @@
             margin: 0 8px;
             box-shadow: 0 3px 3px 1px #efefef;
             margin-bottom: 30px;
+            cursor: pointer;
         }
         &__button_off {
             background: #efefef;
